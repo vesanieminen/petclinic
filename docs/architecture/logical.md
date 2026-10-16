@@ -10,11 +10,11 @@ a table when one already fits.
 ## Feature modules
 
 Five business modules plus one technical shell. A module owns its entities, its
-queries, its REST resource, and the Angular pages of the use cases it serves.
+queries, its REST resource, and the pages of the use cases it serves.
 
 ```mermaid
 flowchart LR
-    core["core — shell<br/>app shell · ErrorMapper · error pages"]
+    core["core — shell<br/>app shell · error pages"]
     welcome["welcome<br/>UC-001"]
     vet["vet<br/>UC-002<br/>Vet · Specialty"]
     owner["owner<br/>UC-003…006<br/>Owner"]
@@ -34,13 +34,12 @@ flowchart LR
 | `owner`   | `OWNER`                             | UC-003 … UC-006 |
 | `pet`     | `PET`, `PET_TYPE`                   | UC-007, UC-008  |
 | `visit`   | `VISIT`                             | UC-009          |
-| `core`    | — (app shell and error handling)    | UC-010          |
+| `core`    | — (app shell and error pages)       | UC-010          |
 
 What a module contains follows from the use cases assigned to it and the naming
-rules of the Development View: one Angular page per use case, one `<Entity>`
-JPA entity and one `<Entity>Repository` per entity, one `<Feature>Resource`
-answering under `/api/`, and a shared form component (`owner-form.ts`) where
-several use cases edit the same entity.
+rules of the Development View: one page per use case, one `<Entity>` entity and
+one `<Entity>Repository` per entity, a shared `<entity>-form.ts` where several use
+cases edit the same entity.
 
 The clinic is small enough that these are modules, not bounded contexts: there
 is one ubiquitous language and one database schema. `Owner` means the same thing
@@ -49,19 +48,16 @@ everywhere.
 ## Boundaries
 
 - A module reaches into another module through its **`domain`** package only —
-  never through its `api`. A resource answers for its own feature and takes what
-  it needs from another feature's repository.
-- The one exception is the frontend's navigation: the shell and the aggregating
-  pages (e.g. the owner details page of UC-005 linking to the add-pet page of
-  UC-007) link to another module's page by its route path
-  (`routerLink="/owners/{{ owner.id }}/pets/new"`). No import of another
-  module's components, no other calls, no shared state.
-- Because a module's `api` may read another module's `domain` (the owner
-  details resource lists the owner's pets through `PetRepository`; the add-pet
-  resource loads the owner through `OwnerRepository`), the module graph above is
-  cyclic by design (`owner` → `visit` → `pet` → `owner`). The `domain` packages
-  are not, and must stay that way — `ArchitectureTest.noCyclesBetweenFeatures`
-  slices on `(*).domain..` for exactly that reason.
+  never through its `api`.
+- The one exception is routing: the shell and the aggregating pages (e.g.
+  the owner details screen of UC-005 linking to the add-pet screen of UC-007)
+  may name another module's page by its **route path** and fill in its
+  parameters in a `routerLink`. No instantiation
+  of pages, no other calls, no state.
+- Because an `api` may read another module's `domain` the module graph above is cyclic by design (`owner` → `visit` → `pet` → `owner`). The
+  `domain` packages are not, and must
+  stay that way — `ArchitectureTest.noCyclesBetweenFeatures` slices on
+  `(*).domain..` for exactly that reason.
 
 The enforced form of these rules is in
 [`development.md`](development.md#cross-feature-rule--and-its-one-exception).
@@ -78,16 +74,14 @@ architectural decision and holds whatever the rules turn out to be:
 
 | Kind of rule                          | Honoured in                                                     |
 |---------------------------------------|-----------------------------------------------------------------|
-| Field-level input rule                | the validators of the page's Angular form — the validation boundary ([ADR-005](adr/ADR-005-validation-in-the-form.md)) |
-| A rule that needs a database lookup   | the resource, between receiving the request and the write; the page shows its error message; see [`process.md`](process.md#concurrency) |
+| Field-level input rule                | the feature's `<entity>-form.ts` — the validation boundary ([ADR-005](adr/ADR-005-validation-in-the-form.md)) |
+| A rule that needs a database lookup   | the resource, between validation and the write; see [`process.md`](process.md#concurrency) |
 | A rule the data itself must never break | a constraint in the Flyway migration, so it holds no matter which code writes |
-| Ordering of a list                    | an `order by` in the repository's query that feeds it — never a sort in the resource or the page |
-| Reachability of a route               | the resource, which throws `jakarta.ws.rs.NotFoundException` when the entity does not fit the path; `ErrorMapper` turns it into a 404 with its message, which the page shows in the `ErrorPanel` |
+| Ordering of a list                    | an `ORDER BY` in the query that feeds it — never a sort in the page |
+| Reachability of a route               | the resource, which throws `NotFoundException` when the entity does not fit the route |
 
-**Validation is not in the entities.** Entities carry JPA mapping annotations
-and nothing else — no Bean Validation (`ArchitectureTest.domainIsValidationFree`),
-no constructor checks. The form is the validation boundary; the database
-constraints back it up.
+**Validation is not in the domain entities.** Entities carry JPA mappings and
+no validation annotations, no constructor checks — the form is the validation boundary.
 
 ## Reference data
 

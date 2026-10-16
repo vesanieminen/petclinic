@@ -23,10 +23,10 @@ not on the state of the repository.
   and wrote the marker before — or without — a passing build.
 - The status guard fired after the edit. The claim was already in the file, and
   "run the audit first" was a request, not a rule.
-- The only run that counted was the full suite, though the five sensor classes
-  are plain JUnit and ArchUnit. Every turn that touched a document cost a
-  Quarkus start against PostgreSQL and a browser, and "the database is not
-  running" was a sanctioned way to end unverified.
+- The only run that counted was the full suite, though the five
+  sensor classes are plain JUnit and ArchUnit. Every turn that touched a
+  document cost a Quarkus start, and "the database is not running" was a
+  sanctioned way to end unverified.
 - "Changed" meant `src/` and `docs/`. A `pom.xml` edit got no check, a hook
   edit never forced `smoke.sh`, and no CI ran `smoke.sh` either.
 - The committed settings authorized none of the commands the hooks demand, so a
@@ -54,9 +54,9 @@ that it found nothing: the sensors judge the claim itself on the next run.
 And three consequences of taking the rules seriously:
 
 - The five sensor classes carry the JUnit tag `sensor` and start no Quarkus
-  application. `./mvnw -q test -Dgroups=sensor` is what the Stop hook asks for:
-  seconds, no database, no frontend build. The full suite remains the definition
-  of done and the commit gate.
+  application.
+  `./mvnw -q test -Dgroups=sensor` is what the Stop hook asks for: seconds, no
+  database. The full suite remains the definition of done and the commit gate.
 - `pom.xml` joins the watched paths. A change under `.claude/hooks/` or to
   `.claude/settings.json` needs a green `smoke.sh`, which records its own run
   and which CI executes before the Maven build.
@@ -74,13 +74,13 @@ And three consequences of taking the rules seriously:
   Surefire reports behind the marker, and a touched file has none.
 - **The sensor tier is cheap enough to run every turn.** That is what keeping
   the sensors free of Quarkus buys. It costs a rule: a sensor class must never
-  become a `@QuarkusTest`, or every turn pays for an application start again.
+  become a `@QuarkusTest`.
 - **The status guards depend on the plugin's agent.** The `SubagentStop`
   matcher names `aiup-angular-jpa:uc-coverage`; an audit done inline, without
   the agent, leaves no marker and the edit is refused. That is intended: the
   agent is read-only and its checklist is the audit.
 - **Known limits.** A hook still runs only in a Claude Code session. The report
-  check reads `target/`, so `./mvnw clean` after a run takes the evidence away and
+  check reads `target/`, so `mvn clean` after a run takes the evidence away and
   the Stop hook says so. A report is per class, so a run interrupted after the
   five sensors passed but before the rest of the suite counts as a sensor run —
   which is what it is. And a status set through Bash is refused only after the

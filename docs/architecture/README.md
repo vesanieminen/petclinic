@@ -48,7 +48,7 @@ architecture is built on, not a part of it.
 | Touch a save, a transaction, or a lookup     | [`process.md`](process.md)                                             |
 | Change the build, the stack, or a convention | [`development.md`](development.md)                                     |
 | Understand how the agent is kept on track    | this file — [*The harness*](#the-harness)                              |
-| Add or change an agent guardrail / hook      | [`development.md`](development.md) — *Agent guardrails*                |
+| Add or change an agent guardrail / hook       | [`development.md`](development.md) — *Agent guardrails*                |
 | Write or change a test                       | [`testing.md`](testing.md)                                             |
 | Change how or where the app is run           | [`physical.md`](physical.md)                                           |
 | Make a decision that contradicts a view      | [`adr/`](adr) — the same question has probably been answered once      |
@@ -90,19 +90,19 @@ ADR-001 to ADR-008 were written after the fact, reconstructing decisions the cod
 already embodies — like [`../vision.md`](../vision.md). From here on, a decision
 that could have gone the other way gets its ADR when it is made.
 
-| ADR                                                              | Decision                                                            |
-|------------------------------------------------------------------|---------------------------------------------------------------------|
-| [ADR-001](adr/ADR-001-jpa-with-panache.md)                       | JPA (Hibernate ORM with Panache) instead of jOOQ                    |
-| [ADR-002](adr/ADR-002-angular-spa-and-rest-api.md)               | An Angular SPA over a REST API instead of server-side views         |
+| ADR                                                              | Decision                                                      |
+|------------------------------------------------------------------|---------------------------------------------------------------|
+| [ADR-001](adr/ADR-001-jpa-with-panache.md)                       | JPA (Hibernate ORM with Panache) instead of jOOQ              |
+| [ADR-002](adr/ADR-002-angular-spa-and-rest-api.md)               | An Angular SPA over a REST API instead of server-side views   |
 | [ADR-003](adr/ADR-003-flyway-owns-the-schema.md)                 | Flyway owns the schema; entities map it, Hibernate never creates it |
-| [ADR-004](adr/ADR-004-package-by-feature-api-domain.md)          | Package by feature with `api` + `domain`, no service layer          |
-| [ADR-005](adr/ADR-005-validation-in-the-form.md)                 | Validation lives in the Angular form, not in the entity             |
-| [ADR-006](adr/ADR-006-two-test-layers-merged-coverage.md)        | Two Java test layers — `*Test` and `*IT` — plus Vitest              |
-| [ADR-007](adr/ADR-007-traceability-sensors.md)                   | Specification traceability enforced by tests, not by review         |
-| [ADR-008](adr/ADR-008-no-authentication.md)                      | No authentication; a trusted clinic network is assumed              |
-| [ADR-009](adr/ADR-009-repository-is-the-transaction-boundary.md) | The repository is the transaction boundary                          |
-| [ADR-010](adr/ADR-010-hooks-guard-the-session.md)                | Hooks guard the session; tests guard the repository                 |
-| [ADR-011](adr/ADR-011-guards-read-state-and-demand-evidence.md)  | Guards read the repository's state and demand positive evidence     |
+| [ADR-004](adr/ADR-004-package-by-feature-api-domain.md)          | Package by feature with `api` + `domain`, no service layer    |
+| [ADR-005](adr/ADR-005-validation-in-the-form.md)                 | Validation lives in the Angular form, not in the entity       |
+| [ADR-006](adr/ADR-006-two-test-layers-merged-coverage.md)        | Two test layers — `@QuarkusTest` `*Test` and `*IT`, plus Vitest |
+| [ADR-007](adr/ADR-007-traceability-sensors.md)                   | Specification traceability enforced by tests, not by review   |
+| [ADR-008](adr/ADR-008-no-authentication.md)                      | No authentication; a trusted clinic network is assumed        |
+| [ADR-009](adr/ADR-009-repository-is-the-transaction-boundary.md) | The repository is the transaction boundary                    |
+| [ADR-010](adr/ADR-010-hooks-guard-the-session.md)                | Hooks guard the session; tests guard the repository            |
+| [ADR-011](adr/ADR-011-guards-read-state-and-demand-evidence.md) | Guards read the repository's state and demand positive evidence |
 
 ## Traceability
 
@@ -114,10 +114,9 @@ Worked example, end to end:
 
 `FR-015 Distinguishable Pet Names` → [`GR-006`](../business_rules.md#gr-006-unique-pet-name-per-owner)
 → `UC-007 BR-001` → Logical View (*a rule needing a lookup is honoured in the
-resource; one the data must never break is a constraint*) and Process View (*the
-two are separate transactions, so the constraint is the backstop*) → the `pet`
-feature's Angular form, resource, repository queries, and migration → a test
-method annotated
+resource; one the data must never break is a constraint*) and Process View (*the two
+are separate transactions, so the constraint is the backstop*) → the `pet`
+module's form, queries, and migration → a test method annotated
 `@UseCase(id = "UC-007", businessRules = "BR-001", scenario = "A1: Duplicate Pet Name for Owner")`.
 
 Four of the arrows are enforced. `RequirementTraceabilityTest` fails the build
@@ -142,10 +141,10 @@ specified.
 
 | Layer          | Question it answers                              | Kind           | Parts                                                                                                                  | Binds                  |
 |----------------|--------------------------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------|------------------------|
-| **Guides**     | What should the agent do, and how?               | before, prose  | `CLAUDE.md`, the specifications in `docs/`, the five views, the ADRs, the `aiup-*` skills                              | whoever reads them     |
+| **Guides**     | What should the agent do, and how?               | before, prose  | `CLAUDE.md`, the specifications in `docs/`, the five views, the ADRs, the `aiup-*` skills                               | whoever reads them     |
 | **Sensors**    | Does the repository still agree with the guides? | after, code    | `ArchitectureTest`, `TestLayerConventionsTest`, the four traceability tests; then the full suite and the quality gate  | everyone, CI included  |
-| **Guards**     | Did this session actually run the sensors?       | during, hooks  | the scripts in `.claude/hooks/`, wired up by `.claude/settings.json`                                                   | a Claude Code session  |
-| **Backstop**   | Does it hold for everybody else?                 | after, CI      | `.github/workflows/build.yml`: `smoke.sh`, then the frontend and Maven builds and SonarQube                            | every push             |
+| **Guards**     | Did this session actually run the sensors?       | during, hooks  | the scripts in `.claude/hooks/`, wired up by `.claude/settings.json`                                                    | a Claude Code session  |
+| **Backstop**   | Does it hold for everybody else?                 | after, CI      | `.github/workflows/build.yml`: `smoke.sh`, then the frontend and Maven builds and SonarQube                             | every push             |
 
 ```mermaid
 flowchart LR
@@ -165,9 +164,8 @@ agent (short, in text, one home per fact, see above) and why `CLAUDE.md` is an
 index that names the document to open for each task rather than a copy of it.
 The specifications say *what*: the use cases, the business rules, the entity
 model. The views and ADRs say *how*. The skills (`aiup-angular-jpa:implement`,
-`:flyway-migration`, the backend test skill `:spring-boot-test`, `:vitest-test`,
-`:playwright-test`, `:coverage-check`) turn both into a repeatable procedure, so
-the tenth use case gets built the way the first one was.
+`:spring-boot-test`, `:vitest-test`, `:playwright-test`, `:coverage-check`) turn both into a
+repeatable procedure, so the tenth use case gets built the way the first one was.
 
 **Sensors** are feedback. The six sensor classes read the repository from disk
 and compare it with the guides: ArchUnit checks the code against the
@@ -179,11 +177,10 @@ the requirements
 and they are built to be read by the agent. Every violation is listed at once
 and names the section or heading it comes from, so a failure reads as a work
 list, not a stack trace. Because they carry the JUnit tag `sensor`,
-`./mvnw -q test -Dgroups=sensor` runs them in seconds; they start no Quarkus
-application and need neither the database nor a frontend build, which is cheap
-enough to run every turn. The slower sensors sit behind them: the `@QuarkusTest`
-suites `UC*Test` and `TC*IT`, the Vitest specs, and the quarkus-jacoco coverage
-that the SonarQube gate reads.
+`./mvnw -q test -Dgroups=sensor` runs them in seconds and without the database, which
+is cheap enough to run every turn. The slower sensors sit behind them: the
+`@QuarkusTest` `*Test` and `*IT` suites, the Vitest specs, and the merged coverage that
+the SonarQube gate reads.
 
 **Guards** close the loop. A sensor can only catch drift once somebody runs it,
 and whether it ran is a property of the session, not of the repository, so no
@@ -207,14 +204,13 @@ Implementing a use case, say UC-007 *Add Pet to Owner*, goes through every layer
    later is measured against that.
 2. **Guides.** `CLAUDE.md` sends the agent to `UC-007-*.md`, from its `BR-001`
    to [`GR-006`](../business_rules.md#gr-006-unique-pet-name-per-owner), and to
-   [`development.md`](development.md) before it touches `src/main/java/` or
-   `frontend/src/app/`. The `implement` skill turns them into an Angular page
-   with its form, a REST resource and repository queries.
-3. **Sensors.** The agent runs `./mvnw -q test -Dgroups=sensor`. If a resource
-   declares `@Transactional`, `ArchitectureTest` fails and names the rule
-   (`resourcesAreNotTransactional`). If a test is annotated with a flow that the
-   specification calls something else, `UseCaseTraceabilityTest` fails and
-   names the heading. The agent fixes the code, not the check.
+   [`development.md`](development.md) before it touches `src/main/java/`. The
+   `implement` skill turns them into a page, a form, a resource and repository queries.
+3. **Sensors.** The agent runs `./mvnw -q test -Dgroups=sensor`. If a resource declares
+   `@Transactional`, `ArchitectureTest` fails and names the rule. If a test is
+   annotated with a flow that the specification calls something else,
+   `UseCaseTraceabilityTest` fails and names the heading. The agent fixes the
+   code, not the check.
 4. **Guard on stopping.** If the agent tries to end the turn without that run,
    or edits a file after it, `require-sensors.sh` refuses and names the command.
    `record-sensor-run.sh` counts a run only when every sensor's Surefire report
@@ -226,9 +222,8 @@ Implementing a use case, say UC-007 *Add Pet to Owner*, goes through every layer
    From then on `Done` is an assertion: `UseCaseTraceabilityTest` demands a
    test for the main success scenario, every alternative flow and every
    business rule.
-6. **Backstop.** On push, CI runs `smoke.sh`, then builds the frontend
-   (`npm run build`, `npm test`), then `./mvnw verify` with both Java test layers,
-   then the quality gate on the quarkus-jacoco coverage.
+6. **Backstop.** On push, CI runs `smoke.sh`, then `npm run build` and `npm test`, then `./mvnw verify` with both
+   test layers, then the quality gate on the merged coverage.
 
 ### The rules the harness is built on
 
@@ -250,8 +245,7 @@ Implementing a use case, say UC-007 *Add Pet to Owner*, goes through every layer
 - **Guards fail open.** A hook that cannot read its input exits quietly. A
   guardrail that breaks the session costs more than the drift it catches.
 - **Cheap enough to run every turn.** A sensor nobody runs senses nothing. That
-  is why the sensor tier runs apart from the `@QuarkusTest` suite, which needs
-  the database and the built frontend.
+  is why the sensor tier runs apart from the `@QuarkusTest` suite.
 
 ### What the harness does not do
 
@@ -264,14 +258,14 @@ Implementing a use case, say UC-007 *Add Pet to Owner*, goes through every layer
   possible.
 - **There is one deliberate escape.** After one blocked Stop, the second one is
   let through, so a session without a working build cannot loop forever. A turn
-  that ends that way shows it in the transcript. `./mvnw clean` after a run removes
+  that ends that way shows it in the transcript. `mvn clean` after a run removes
   the evidence, and the Stop hook asks for the run again.
 
 ### Changing the harness
 
 | You change                                 | Also update                                         | Then run                            |
 |--------------------------------------------|-----------------------------------------------------|-------------------------------------|
-| a convention in a view                     | the matching rule in `ArchitectureTest`             | `./mvnw -q test -Dgroups=sensor`       |
-| the specification format (`Status:`, ids)  | `SpecDocuments` and [`testing.md`](testing.md)      | `./mvnw -q test -Dgroups=sensor`       |
+| a convention in a view                     | the matching rule in `ArchitectureTest`             | `./mvnw -q test -Dgroups=sensor`    |
+| the specification format (`Status:`, ids)  | `SpecDocuments` and [`testing.md`](testing.md)       | `./mvnw -q test -Dgroups=sensor`    |
 | a hook or `.claude/settings.json`          | the table in [`development.md`](development.md)     | `./.claude/hooks/smoke.sh`          |
 | what a layer is responsible for            | an [ADR](adr)                                       | both                                |

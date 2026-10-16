@@ -7,7 +7,7 @@ on:
     types: [ opened, synchronize, reopened ]
 jobs:
   build:
-    name: Build and test
+    name: Build and analyze
     runs-on: ubuntu-latest
     # The tests run against PostgreSQL, as in every environment (C-005, C-007).
     services:
@@ -29,6 +29,12 @@ jobs:
         with:
           java-version: 25
           distribution: 'zulu' # Alternative distribution options are available.
+      - name: Cache SonarQube packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
       - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
@@ -41,8 +47,10 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      # Playwright downloads its browser on first use, outside ~/.m2; the
-      # version is pinned in pom.xml, so the POM hash invalidates this.
+      # Playwright downloads its browser on first use, outside ~/.m2. The
+      # version is set in pom.xml (1.59.0 today), so the
+      # POM hash is what invalidates this: a bumped Playwright fetches the
+      # browser it needs and the restore-key still saves the download.
       - name: Cache Playwright browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -61,5 +69,7 @@ jobs:
           npm ci
           npm run build
           npm test
-      - name: Build and test the backend
-        run: mvn -B verify
+      - name: Build and analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=simasch_aiup-petclinic

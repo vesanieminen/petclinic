@@ -1,49 +1,43 @@
 # Testing
 
-Read this **before writing or modifying any test** under `src/test/java/` or any `*.spec.ts` under `frontend/`.
+Read this **before writing or modifying any test** under `src/test/java/`.
 
-## Two Java test layers — the class suffix picks the Maven phase
+## Two test layers — the class suffix picks the Maven phase
 
-| Layer               | Suffix     | Runs in      | Framework                                                          | Skill                              |
-|---------------------|------------|--------------|--------------------------------------------------------------------|------------------------------------|
-| Use case test       | `*Test`    | `./mvnw test`   | `@QuarkusTest` + Playwright for Java (`BrowserTest`), REST Assured | the backend test skill (`aiup-angular-jpa:spring-boot-test`) |
-| Journey test        | `*IT`      | `./mvnw verify` | `@QuarkusTest` + Playwright for Java (`BrowserTest`), `@TestCase`  | `aiup-angular-jpa:playwright-test` |
-| Component test      | `*.spec.ts`| `npm test`   | Vitest through `ng test`, beside the component                     | `aiup-angular-jpa:vitest-test`     |
+| Layer                 | Suffix  | Runs in         | Framework                                              | Skill                               |
+|-----------------------|---------|-----------------|--------------------------------------------------------|-------------------------------------|
+| Use case test         | `*Test` | `./mvnw test`   | Playwright for Java (`BrowserTest`), REST Assured      | `aiup-angular-jpa:spring-boot-test` |
+| Journey test          | `*IT`   | `./mvnw verify` | Playwright for Java (`BrowserTest`)                    | `aiup-angular-jpa:playwright-test`  |
 
-Surefire picks up `*Test`, Failsafe picks up `*IT` (both declared in `pom.xml`). A use case test named `*IT` or a
-journey test named `*Test` runs in the wrong phase, and `TestLayerConventionsTest` fails the build when one does: no
-class whose name starts with `UC` may end in `IT`, and every class annotated `@TestCase` must. The rule is worth
-enforcing because the failure is otherwise silent: nothing errors, the wrong Maven plugin simply never picks the class
-up, and a test that never runs reports as passing. `UC<NNN>…Test` is the default for use cases, browser or not;
-`*IT` is for test cases (`TC-*`), the end-to-end journeys. Vitest specs are a third, fast layer for a component's own
-rendering logic; the Java sensors do not see them, so they never count towards a use case's coverage.
+Surefire picks up `*Test`, Failsafe picks up `*IT` (both plugins are declared in
+`pom.xml`). A use case test named `*IT` or a journey test named `*Test` runs in the wrong
+phase, and `TestLayerConventionsTest` fails the build when one does. The rule is worth enforcing because the
+failure is otherwise silent: nothing errors, the wrong Maven plugin simply never picks the class up, and a test
+that never runs reports as passing. `*Test` is for use cases, in a browser or not; `*IT` is for test cases (`TC-*`),
+the end-to-end journeys.
+Angular component specs (`*.spec.ts`, Vitest via `npm test` in `frontend/`, skill `aiup-angular-jpa:vitest-test`) sit
+beside the component; the traceability sensors do not see them.
 
 ## Framework
 
-- **`@QuarkusTest`** starts the application once per test run — the REST API, the database connection and the built
-  Angular frontend Quarkus serves as static content — on a random port (`%test.quarkus.http.test-port=0`).
+- **`@QuarkusTest`** (`quarkus-junit`) is the default for use case
+  tests — it starts the application, its REST API and the built Angular frontend on a random port, no
+  separate server.
   Reference: https://quarkus.io/guides/getting-started-testing
-- A use case test that exercises a page extends `BrowserTest` and drives headless Chromium through
-  **Playwright for Java**. A test of the API alone uses **REST Assured** (`given().when().get("/api/…")`) and needs no
-  base class (`PetclinicApplicationTests`, which only starts the application, is the smallest). One class may do both. They all run against the same local PostgreSQL
-  test database as the rest of the tests.
-- **Use the backend test skill (`aiup-angular-jpa:spring-boot-test`)** to scaffold a test for a use case, and
-  `aiup-angular-jpa:vitest-test` for a component spec. Prefer them over hand-rolling — they know the conventions in this
-  file (locators, `@UseCase`, naming, etc.).
-- **No Spring, no Testcontainers, no Vaadin.** Any `org.springframework.*`, `org.testcontainers.*` or `com.vaadin.*`
-  import in a test is a mistake — the project is `@QuarkusTest`, Playwright and REST Assured. The frontend's
-  `@playwright/test` dependency only pins the Chromium build both sides share; the browser tests are written in Java.
+- Page tests extend `BrowserTest` and drive headless Chromium (or use REST Assured alone for tests of the API, in
+  which case `@QuarkusTest` is all they need). Build the frontend first (`cd frontend && npm run build`).
+  They run inside the Quarkus application and use the same local PostgreSQL as the rest of the tests.
+- **Use the `aiup-angular-jpa:spring-boot-test` skill** to scaffold a test for a use case. Prefer it over
+  hand-rolling — it knows the conventions in this file (locators, `@UseCase`, naming, etc.).
 
 ## Test class naming — `UC<NNN><UseCaseName>Test`
 
-Tests that verify a use case are named after the use case, **not** the page or the resource. Format:
+Tests that verify a use case are named after the use case, **not** the page. Format:
 `UC<NNN><UseCaseNameInPascalCase>Test`, e.g `UC001ViewWelcomePageTest`, `UC004FindOwnersByLastNameTest`,
 `UC007AddPetToOwnerTest`. The `NNN` matches the `UC-NNN-*.md` file in `docs/use_cases/`.
 
-If a page or resource is touched by multiple use cases, write one `UC<NNN>…Test` class per use case rather than one
-`XxxResourceTest` covering all of them. Keep the test file in the **package of the resource under test**
-(`owner.api`), or the feature package for a page without a resource (`welcome`), and name the class after the UC.
-A Vitest spec sits beside its component and names the use case in its `describe('UC-004: Find Owners by Last Name')`.
+If a page is touched by multiple use cases, write one `UC<NNN>…Test` class per use case rather than one `XxxPageTest`
+covering all of them. Keep the test file in the **package of the feature under test** and name the class after the UC.
 
 **Exception — cross-cutting tests.** `ArchitectureTest` (the ArchUnit rules behind
 [`development.md`](development.md)) and `PetclinicApplicationTests` verify no single use case, so they sit in the
@@ -67,14 +61,12 @@ void exactlyOneMatchNavigatesDirectlyToOwnerDetails() { ... }
   `businessRules = {"BR-001", "BR-002"}` — **never** as one comma-separated string `"BR-001, BR-002"`.
   `UseCaseTraceabilityTest` rejects anything that is not a bare `BR-NNN` identifier.
 
-- **Placement** — `@UseCase` belongs on a method of a `UC<NNN><Name>Test`, and nowhere else; the `NNN` in the class name
-  must match the `id` it annotates. (`UseCaseTraceabilityTest` would also accept a `UC<NNN><Name>IT`, but
-  `TestLayerConventionsTest` forbids that name here: a use case test that needs a browser is still a `*Test`.) A journey
-  test does not borrow it to claim one of the use cases it walks through; that is what `@TestCase` is for.
-  `UseCaseTraceabilityTest` enforces both halves.
+- **Placement** — `@UseCase` belongs on a method of a `UC<NNN><Name>Test`, even for a use case that needs a browser,
+  and nowhere else; the `NNN` in the class name must match the `id` it annotates. A journey test does not borrow it to claim one of the use cases it walks through;
+  that is what `@TestCase` is for. `UseCaseTraceabilityTest` enforces both halves.
 
 This is the machine-readable spec → test link. `docs/` is the source of truth, so every test points at the exact spec
-element it covers. Vitest specs cannot carry the annotation; their `describe` names the use case for the reader only.
+element it covers.
 
 ## `@TestCase` on every journey test
 
@@ -112,9 +104,9 @@ The shared markdown handling (the `**Status:**` pattern, the file scan, the viol
 `SpecDocuments`, so the document format is described in one place.
 
 All six sensor classes — these four and the two ArchUnit classes, `ArchitectureTest` and `TestLayerConventionsTest` —
-carry the JUnit tag `sensor`. `./mvnw -q test -Dgroups=sensor` runs them alone, in seconds: none of them is a
-`@QuarkusTest`, so they start no Quarkus application and need no database or frontend build. It is the run the Stop
-hook asks for (ADR-011); the full suite remains the definition of done.
+carry the JUnit tag `sensor`. `./mvnw -q test -Dgroups=sensor` runs them alone, in seconds and without Docker: the
+sensor classes are not `@QuarkusTest`s, so they need no database or frontend build. It is the run the Stop hook asks for
+(ADR-011); the full suite remains the definition of done.
 
 ### Use cases — `UseCaseTraceabilityTest`
 
@@ -138,7 +130,7 @@ is a normal intermediate state, not a defect.
 
 The consequence is that **the `Status:` line is an assertion, not a label**. Setting it to `Done` switches the sensor
 on for that use case; if the tests are not there, `./mvnw test` says so and names each gap. Use
-`aiup-angular-jpa:coverage-check` (or the `aiup-angular-jpa:uc-coverage` sub-agent) before you change a status line.
+`aiup-angular-jpa:coverage-check` before you change a status line.
 
 When the sensor fails, the honest fixes are to write the missing test or to correct the status — never to weaken the
 check.
@@ -209,52 +201,47 @@ this project writes the test case before the test.
 
 ## Test base class
 
-A test that drives a page extends `ai.unifiedprocess.petclinic.BrowserTest` and carries `@QuarkusTest` itself
-(the base class is not annotated):
+Page tests extend `ai.unifiedprocess.petclinic.BrowserTest`:
 
-- Launches one headless Chromium per test class (`@BeforeAll`) and opens a fresh `page` per test (`@BeforeEach`,
-  default timeout 20 s), closing both afterwards — subclasses manage no browser lifecycle; the base class is the one
-  place.
-- `open(route)` navigates to a route of the application relative to the test server's root (`@TestHTTPResource("/")`):
-  `open("")` for the welcome page, `open("owners/6")` for a parameterized one.
-- **No per-test rollback.** The browser reaches the application over real HTTP, and each request commits its own
-  transaction in the repository, so there is nothing for a test to roll back. A test that changes data puts the seed
-  back in `@AfterEach` — targeted deletes, or an injected `Flyway` with `clean()` + `migrate()` — and must be idempotent.
-- Seed-data IDs come from `src/test/resources/db/migration/V2__seed_reference_data.sql` (George Franklin is owner 1,
-  Jean Coleman owner 6, …). When a test needs one, add a named constant to `BrowserTest` (`OWNER_FRANKLIN_ID`, …)
-  rather than hard-coding a numeric ID in the test.
-- For not-found / error flows open the location string, `open("owners/999999")`: the page asks the API, gets a 404
-  with `{"message": …}`, and shows the error panel; an unknown route falls through to the `**` route (`NotFoundPage`).
-- Tests that never open a page (`PetclinicApplicationTests`) do not extend it; `@QuarkusTest` and REST Assured are
-  enough.
+- Launches headless Chromium once per class and opens a fresh `page` per test, closing both afterwards — subclasses
+  manage none of this; the base class is the one place. Subclasses declare `@QuarkusTest`; there is no per-test rollback.
+- Is the place for canonical seed-data IDs as constants (`OWNER_FRANKLIN_ID`, `OWNER_COLEMAN_ID`, `PET_SAMANTHA_ID`,
+  `PET_MAX_ID`, …) that match
+  `src/test/resources/db/migration/V2__seed_reference_data.sql`. Add a constant there when a new test needs another
+  seed row — never hard-code a numeric ID in a test.
+- For not-found / error flows open the location string, `open("owners/999999")`, and assert what the page shows
+  (the error panel, or `NotFoundPage` for an unknown route).
+- Tests that never open a page (`PetclinicApplicationTests`) do not extend it; `@QuarkusTest` and REST Assured do.
 
 Test seed data lives **only** on the test classpath (`src/test/resources/db/migration/V2__seed_reference_data.sql`). Do
 **not** put seed data under `src/main/resources/db/migration/`.
 
 ## Core Playwright and REST Assured API
 
-- `open("owners/find")` — loads the route in the browser; `page` is the scope for every locator.
-- `page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Find Owner"))` — find an element by its
-  accessibility role and accessible name. This is the preferred locator. Others, in order of preference:
-    - `page.getByLabel("Last name")` — a form field by its label.
-    - `page.getByText("…")` — rendered text that has no role of its own.
-    - `locator.filter(new Locator.FilterOptions().setHasText("Davis"))`, `locator.nth(i)` — narrow a list.
-- `locator.fill("Dav")` / `locator.click()` / `locator.press("Enter")` — simulate user interaction through the real
-  browser; Playwright waits until the element is visible, enabled and stable before acting.
-- `PlaywrightAssertions.assertThat(locator)` — `isVisible()`, `hasText(…)`, `hasCount(n)`, `hasAttribute(…)`;
-  `assertThat(page).hasURL(…)`. Every one retries until it holds or the timeout expires.
-- REST Assured for the API: `given().queryParam("lastName", "Dav").when().get("/api/owners").then().statusCode(200)
-  .body("lastName", contains("Davis", "Davis"))` — the base URI and port are set by `@QuarkusTest`.
+- `open("")` — loads the route in the browser; `page` is the scope for every locator.
+  `open("owners/6")` for parameterized routes.
+- `locator.fill(...)` / `locator.click()` / `locator.selectOption(...)` — act through the real browser to
+  simulate user interaction. Prefer this over evaluating JavaScript in the page.
+- `page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Find Owner"))` — query the rendered page. Others:
+    - `getByRole(...)` with an accessible name — preferred.
+    - `getByLabel("Last name")` — a form field by its label.
+    - `getByText(...)` — rendered text that has no role of its own.
+    - `filter(new Locator.FilterOptions().setHasText(...))`, `nth(int)` — narrow a list.
+      Locators are strict: acting on one that matches several elements throws. **Avoid `first()`.**
+- `parent.getByRole(...)` — scope the query to a sub-tree rooted at `parent`.
+- `locator.press("Enter")` / `page.keyboard().press("Control+S")`
+  — simulate keyboard shortcuts.
+- `given().when().get("/api/…").then().statusCode(200)` — REST Assured for the API; `@QuarkusTest` sets the port.
 
 ## No direct field access — use locators
 
-A Java test cannot reach an Angular component's fields at all: the component lives in the browser. Tests locate what
-the user sees — by role, label and text — in the rendered page. This decouples the test from the template's internal
-layout and exercises the whole path, HTTP and API included. Never `page.locator("css or xpath")`.
+Component state lives in the browser. Tests must **never** access component fields directly (Vitest specs included). Use
+Playwright locators to find elements in the rendered page. This decouples the test from the template's layout and exercises
+the render path end-to-end.
 
 - Find input fields by label: `page.getByLabel("Last name")`
 - Find buttons by name: `page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Find Owner"))`
-- Find the result table (usually one per page): `page.getByRole(AriaRole.TABLE)`
+- Find a table (usually one per page): `page.getByRole(AriaRole.TABLE)`
 - Scope to a parent: `menu.getByRole(AriaRole.LINK)`
 - Verify rendered text: `assertThat(page.getByText("Jane Doe")).isVisible()`
 
@@ -263,102 +250,85 @@ Interact through the locator:
 ```java
 page.getByLabel("First Name").fill("Jane");
 page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Add Owner")).click();
-page.getByRole(AriaRole.COMBOBOX, new Page.GetByRoleOptions().setName("Type")).click();   // mat-select
-page.getByRole(AriaRole.OPTION, new Page.GetByRoleOptions().setName("dog")).click();
+page.getByLabel("Type").selectOption("dog");
 ```
 
-Check validation state via the locator (Angular Material marks an invalid field `aria-invalid`):
+Check validation state via the locator:
 
 ```java
-assertThat(page.getByLabel("Telephone")).hasAttribute("aria-invalid", "true");
+assertThat(page.getByLabel("Telephone")).hasClass(Pattern.compile("ng-invalid"));
 assertThat(page.getByText("not found")).isVisible();
 ```
 
-In a Vitest spec the same rule holds: query the rendered DOM (`fixture.nativeElement.querySelector('nav[aria-label="Main
-menu"]')`), not the component's signals.
+## Scoping with `parent.getByRole()` vs. page-wide `page.getByRole()`
 
-## Scoping a locator vs. a page-wide locator
-
-Scope a locator to its container when the page contains the same thing more than once — a row of a table, the
-`"Main menu"` navigation, one of two forms with a field of the same label:
-
-```java
-Locator menu = page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main menu"));
-Locator davis = page.getByRole(AriaRole.ROW).filter(new Locator.FilterOptions().setHasText("Harold"));
-assertThat(davis.getByRole(AriaRole.CELL).nth(1)).hasText("Davis");
-```
-
-A page-wide `page.getByRole(…)` is fine when the role and name are unique on the page.
+Use `parent.getByRole(…)` when the page contains multiple elements with the same role (e.g. two `h3`
+elements, or fields with the same label in different forms). Page-wide `page.getByRole(…)` is fine when the role or
+name is unique on the page.
 
 ## Positive vs. negative locator assertions
 
-**Element should exist** — assert it is visible:
+**Component should exist** — assert the locator is visible:
 
 ```java
 assertThat(page.getByRole(AriaRole.IMG,
         new Page.GetByRoleOptions().setName("Pets at the clinic"))).isVisible();
 ```
 
-**Element should NOT exist** — Angular's `@if` removes an element from the DOM rather than hiding it, so assert the
-locator matches nothing:
+**Component should NOT exist** — Angular's `@if` removes it from the DOM rather than hiding it, so verify the locator matches
+nothing:
 
 ```java
 assertThat(page.getByRole(AriaRole.TABLE)).hasCount(0);
 ```
 
-For the API, a negative is a body matcher: `.body(not(containsString("at ai.unifiedprocess")))`.
-
 ## No public test-only getters
 
-Do **not** add anything to a component or a resource so tests can reach it: no `data-testid` attributes, no public
-fields, no test-only endpoints. Tests use roles, labels and text. If a role locator cannot find an element, the page is
-missing an accessible name, and the fix is an `aria-label` the user benefits from too.
+Do **not** add test-only hooks to pages so tests can reach their internals (`data-testid` attributes, test-only
+endpoints, public fields, etc.). Tests use locators.
 
 ## Assertions
 
-- **Never `assertTrue(locator.isVisible())`** or `assertNotNull` on a locator. `isVisible()` is a snapshot taken
-  before Angular may have rendered, and a locator is never null — both prove nothing about rendering. Use
-  `PlaywrightAssertions.assertThat`, which waits.
-- **Always go through `assertThat(locator)`**, which retries and names the locator in the failure:
+- **Never `assertNotNull` on a locator.** A locator is only a query and cannot be null — the
+  assertion is vacuous and proves nothing about rendering. Use a locator assertion to verify the element is in the page.
+- **Always go through `assertThat(locator)`**, which waits and names the locator in the failure:
   ```java
   assertThat(page.getByRole(AriaRole.IMG,
-          new Page.GetByRoleOptions().setName("PetClinic logo"))).isVisible();
-  assertThat(page.getByRole(AriaRole.NAVIGATION, new Page.GetByRoleOptions().setName("Main menu"))
-          .getByRole(AriaRole.LINK)).hasText(new String[] {"Home", "Find Owners", "Veterinarians", "Error"});
+          new Page.GetByRoleOptions().setName("Pets at the clinic"))).isVisible();
+  open("");
+  assertThat(page).hasTitle("Welcome");
   ```
-  Never `Thread.sleep` or `page.waitForTimeout` to "let the page settle" — a fixed wait is either too short or wasted.
-- **Never `.allTextContents().stream().anyMatch(...)`.** Narrow the locator (`filter`, scoping) or assert the whole list
-  with `hasText(String[])` — the failure message then shows expected against actual.
-- **Rendered-state assertions** go through role, label and text locators and assert with `hasText`, so the render path
-  is exercised end-to-end. **API assertions** use REST Assured's `body(path, matcher)` on the JSON, not a deserialized
-  object poked field by field.
-- **Navigation assertions** check `assertThat(page).hasURL(Pattern.compile(".*/owners/1$"))`, not domain state pulled
-  back out of the API.
+  `assertTrue(locator.isVisible())` checks once, before Angular may have rendered, so it is flaky and the CI
+  failure is uninformative.
+- **Never `.allTextContents().stream().anyMatch(...)`.** Narrow the locator instead (`filter`, scoping) — the failure message
+  is informative.
+- **Rendered-state assertions** go through `page.getByText(…)`, `page.getByRole(AriaRole.HEADING, …)`, etc. and assert with `hasText(…)` so
+  the
+  render path is exercised end-to-end.
+- **Navigation assertions** check
+  `assertThat(page).hasURL(…)`, not domain state pulled back out of the page.
 
 ## Integration test configuration
 
-There is no Docker and no Testcontainers. The tests use a local PostgreSQL server on `localhost:5432`
-(`vb-postgres start`); every Maven build makes sure it is running and that the `petclinic_test` database exists
-(`exec-maven-plugin`, `vb-postgres ensure petclinic_test`). Quarkus Dev Services are off. The `%test` profile in
-`application.properties` points at `petclinic_test`, and Flyway **cleans and migrates** it when the test application
-starts, applying `src/test/resources/db/migration/V2__seed_reference_data.sql` with the schema — every run starts from
-the same seed. `./mvnw quarkus:dev` does the same against the `postgres` database.
+The `%test` profile in `src/main/resources/application.properties` points at a local PostgreSQL, the `petclinic_test`
+database on localhost:5432 (`vb-postgres start`; a Maven profile starts it where installed), cleaned and migrated at
+start with the seed. `./mvnw quarkus:dev` (with `npm start` in `frontend/`) does the same against `postgres`.
 
 ## Playwright `*IT` tests
 
-Journey tests are the second Java layer, not a replacement for the use case tests. Rules that differ from the above:
+Journey tests are the second layer, not a replacement for use case tests. Rules that differ from the above:
 
-- Class name `TC<NNN><TestCaseName>IT` for a test case document under `docs/test_cases/` (e.g.
-  `TC003VisitBookedForNewCustomerIT`), in `ai.unifiedprocess.petclinic.e2e`. A use case test is never `*IT`, even when
-  it needs a browser (`TestLayerConventionsTest`).
-- `@QuarkusTest`, extend `BrowserTest`, annotate `@TestCase`. Playwright for Java (`com.microsoft.playwright:playwright`,
-  test scope) is already in `pom.xml`; nothing else is needed.
-- **Build the frontend first** (`cd frontend && npm run build`): Quarkus serves `frontend/dist/petclinic/browser`, and a
-  missing build is simply no frontend — every browser test then fails to find anything.
-- Locate elements by role, label and text as above — never raw `page.locator(...)`, never `Thread.sleep`.
-- Data a journey creates is cleaned up in `@AfterEach` (targeted deletes, or Flyway clean + migrate, idempotent). A test
-  case's **Postconditions** section is the cleanup contract.
-- `@TestCase` on the class; `@UseCase` never appears here.
+- Class name `TC<NNN><TestCaseName>IT` for a test case document under
+  `docs/test_cases/` (e.g. `TC003VisitBookedForNewCustomerIT`). Journey tests go in
+  `ai.unifiedprocess.petclinic.e2e`. A use case test is a `UC<NNN>…Test` even when it needs a browser —
+  `TestLayerConventionsTest` rejects a `UC…IT`.
+- Extend `ai.unifiedprocess.petclinic.BrowserTest`, annotate
+  `@QuarkusTest`; `BrowserTest` injects the server's URL (`@TestHTTPResource`). Playwright for Java
+  (`com.microsoft.playwright:playwright`, test scope) is already in `pom.xml`.
+- Locate elements by role, label and text (`page.getByRole`, `page.getByLabel`, …)
+  — never raw `page.locator(...)`, never `Thread.sleep`.
+- No `@Transactional` rollback across a real HTTP round-trip: data a test creates is cleaned up in `@AfterEach`
+  (through the UI or targeted deletes, idempotent). A test case's **Postconditions** section is the cleanup contract.
+- `@TestCase` on the class, as above; `@UseCase` does not appear here.
 - Run with `./mvnw verify` (all) or `./mvnw verify -Dit.test=TC003VisitBookedForNewCustomerIT`;
-  `BrowserTest` always launches headless — set `PWDEBUG=1` to watch the browser with the Playwright Inspector.
-- Coverage: `quarkus-jacoco` writes the report of the `@QuarkusTest` runs to `target/jacoco-report`.
+  set `PWDEBUG=1` to watch the browser in the Playwright Inspector.

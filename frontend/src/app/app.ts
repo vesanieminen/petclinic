@@ -1,8 +1,4 @@
-import { Component } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatListModule } from '@angular/material/list';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
+import { Component, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 /** One entry of the main menu. */
@@ -19,10 +15,6 @@ interface MenuItem {
 @Component({
   selector: 'app-root',
   imports: [
-    MatButtonModule,
-    MatListModule,
-    MatSidenavModule,
-    MatToolbarModule,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
@@ -31,6 +23,9 @@ interface MenuItem {
   styleUrl: './app.css',
 })
 export class App {
+  /** Whether the drawer with the main menu is shown. */
+  protected readonly drawerOpen = signal(true);
+
   /** Accessible name of the drawer's navigation landmark. */
   protected readonly navLabel = 'Main menu';
 
