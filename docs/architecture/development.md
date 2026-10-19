@@ -258,8 +258,12 @@ The exception is `test -Dgroups=sensor`: it starts no application and
 runs only the six classes tagged `sensor`, none a `@QuarkusTest`, so it
 needs no database.
 
-CI is `.github/workflows/build.yml`: the hook smoke test, the frontend build and tests, then `mvn -B verify`
-plus the Sonar scanner, on every push to `main` and every pull request. `.github/workflows/aiup-generate.yml`
+CI is `.github/workflows/build.yml`: the hook smoke test, the frontend build and tests, then `mvn -B verify`,
+on every push to `main` and every pull request. SonarCloud analysis runs afterward only when the
+repository has a `SONAR_TOKEN` secret and `SONAR_PROJECT_KEY` and `SONAR_ORGANIZATION` Actions variables.
+These must belong to the repository's own SonarCloud project; forks need no SonarCloud configuration
+to build and test. When enabled, analysis failures still fail CI. The scanner reads coverage from
+`target/jacoco-report/jacoco.xml`. `.github/workflows/aiup-generate.yml`
 is the dispatch hook for AI Unified Process Studio and is not edited by hand.
 
 ## Agent guardrails

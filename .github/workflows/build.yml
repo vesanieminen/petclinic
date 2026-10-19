@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build and analyze
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     # The tests run against PostgreSQL, as in every environment (C-005, C-007).
     services:
       postgres:
@@ -30,6 +32,7 @@ jobs:
           java-version: 25
           distribution: 'zulu' # Alternative distribution options are available.
       - name: Cache SonarQube packages
+        if: ${{ env.SONAR_TOKEN != '' && vars.SONAR_PROJECT_KEY != '' && vars.SONAR_ORGANIZATION != '' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.sonar/cache
@@ -69,7 +72,17 @@ jobs:
           npm ci
           npm run build
           npm test
-      - name: Build and analyze
+      - name: Verify the backend
+        run: mvn -B verify
+      # Forks can run the full build without the upstream SonarCloud account.
+      # Configure all three values to enable analysis for this repository.
+      - name: Analyze with SonarCloud
+        if: ${{ env.SONAR_TOKEN != '' && vars.SONAR_PROJECT_KEY != '' && vars.SONAR_ORGANIZATION != '' }}
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=simasch_aiup-petclinic
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: >-
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar
+          -Dsonar.projectKey="$SONAR_PROJECT_KEY"
+          -Dsonar.organization="$SONAR_ORGANIZATION"
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/jacoco-report/jacoco.xml
