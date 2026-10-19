@@ -3,7 +3,7 @@
 # SubagentStop(uc-coverage) — remember that a coverage audit finished.
 #
 # guard-spec-status.sh and check-spec-status.sh accept an asserting Status:
-# only after aiup-vaadin-jooq:coverage-check has audited that specification,
+# only after aiup-angular-jpa:coverage-check has audited that specification,
 # and the audit runs in the plugin's read-only uc-coverage agent. Its stop is
 # the one moment the session knows the audit happened, so this writes a marker
 # per id the agent was asked about. The marker says an audit finished, not that

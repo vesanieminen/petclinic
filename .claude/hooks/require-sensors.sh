@@ -43,7 +43,7 @@ Run the sensors before finishing:
   ./mvnw -q test -Dgroups=sensor
 
 That is ArchitectureTest, TestLayerConventionsTest and the four traceability
-sensors that hold docs/ and the code together — seconds, no Docker. A full
+sensors that hold docs/ and the code together — seconds, no database. A full
 ./mvnw test or verify counts too. What counts is the fresh, green Surefire
 report of every sensor, so a narrowed run (-Dtest=…), a skipped one, a failed
 one, or one still running in the background does not — and neither does output

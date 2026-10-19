@@ -14,7 +14,7 @@ express *"the agent ran the sensors before it claimed to be done"*, because that
 is a property of the session, not of the repository.
 
 So the failure mode survives every check in the previous ADRs: an agent edits a
-view, skips `./mvnw test`, and reports success. The drift is real from that
+page, skips `./mvnw test`, and reports success. The drift is real from that
 moment until CI catches it — minutes or hours later, and only if someone pushes.
 
 A second gap has the same shape. `CLAUDE.md` states in prose that a `Status:`
@@ -48,7 +48,7 @@ four, with the scripts in `.claude/hooks/`:
 `smoke.sh` beside them exercises all four against a throwaway repository and
 is the thing to run after changing one.
 
-**Everything else stays a test.** The rule that a browserless test must not be
+**Everything else stays a test.** The rule that a use-case test must not be
 named `*IT` was prose until now; it became `TestLayerConventionsTest`, not a
 fourth hook.
 
@@ -70,7 +70,7 @@ test.* Only a rule about what happened during a session is a hook.
   it was meant to catch.
 - **The `Stop` hook is one enforced reminder per turn, not a wall.** After a
   block Claude continues, and when it tries to stop again the hook sees
-  `stop_hook_active` and lets go — that is what keeps a session without Docker
+  `stop_hook_active` and lets go — that is what keeps a session without a database
   from looping forever. Its message asks for exactly that case to be reported
   instead of glossed over, and a turn that ends without the sensors having run
   is visible in the transcript. `touch .git/aiup-sensors-ran` is the deliberate

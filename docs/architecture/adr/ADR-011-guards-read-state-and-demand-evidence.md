@@ -23,9 +23,9 @@ not on the state of the repository.
   and wrote the marker before — or without — a passing build.
 - The status guard fired after the edit. The claim was already in the file, and
   "run the audit first" was a request, not a rule.
-- The only run that counted was the full Testcontainers suite, though the five
+- The only run that counted was the full suite, though the five
   sensor classes are plain JUnit and ArchUnit. Every turn that touched a
-  document cost a container start, and "Docker is not available" was a
+  document cost a Quarkus start, and "the database is not running" was a
   sanctioned way to end unverified.
 - "Changed" meant `src/` and `docs/`. A `pom.xml` edit got no check, a hook
   edit never forced `smoke.sh`, and no CI ran `smoke.sh` either.
@@ -53,10 +53,10 @@ that it found nothing: the sensors judge the claim itself on the next run.
 
 And three consequences of taking the rules seriously:
 
-- The five sensor classes carry the JUnit tag `sensor`, and a `sensors` Maven
-  profile activated by `-Dgroups=sensor` skips jOOQ code generation and JaCoCo.
+- The five sensor classes carry the JUnit tag `sensor` and start no Quarkus
+  application.
   `./mvnw -q test -Dgroups=sensor` is what the Stop hook asks for: seconds, no
-  Docker. The full suite remains the definition of done and the commit gate.
+  database. The full suite remains the definition of done and the commit gate.
 - `pom.xml` joins the watched paths. A change under `.claude/hooks/` or to
   `.claude/settings.json` needs a green `smoke.sh`, which records its own run
   and which CI executes before the Maven build.
@@ -67,16 +67,16 @@ And three consequences of taking the rules seriously:
 
 - **The three ways to end a turn with an unverified claim while every visible
   check said green are closed**: the Bash edit, the background or truncated
-  run, and the Docker excuse. A turn that still ends unverified does so through
+  run, and the missing-database excuse. A turn that still ends unverified does so through
   the one deliberate escape ADR-010 kept — the second Stop after a block — and
   is visible as such in the transcript. The other escape ADR-010 named,
   `touch .git/aiup-sensors-ran`, no longer works: the Stop hook reads the
   Surefire reports behind the marker, and a touched file has none.
-- **The sensor tier is cheap enough to run every turn.** That is what the
-  profile buys. It costs one more Maven profile and a `build-helper` execution
-  that registers the generated sources the skipped generator no longer does.
+- **The sensor tier is cheap enough to run every turn.** That is what keeping
+  the sensors free of Quarkus buys. It costs a rule: a sensor class must never
+  become a `@QuarkusTest`.
 - **The status guards depend on the plugin's agent.** The `SubagentStop`
-  matcher names `aiup-vaadin-jooq:uc-coverage`; an audit done inline, without
+  matcher names `aiup-angular-jpa:uc-coverage`; an audit done inline, without
   the agent, leaves no marker and the edit is refused. That is intended: the
   agent is read-only and its checklist is the audit.
 - **Known limits.** A hook still runs only in a Claude Code session. The report

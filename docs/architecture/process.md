@@ -11,35 +11,35 @@ be right here, but for reasons worth knowing.
 
 ## Runtime shape
 
-One process. The UI is server-side: a browser event travels over the Vaadin
-Flow protocol into the JVM, a view method runs, jOOQ statements go to
-PostgreSQL, and the resulting UI change travels back. There is no REST layer,
-no client-side state to keep in sync, and no second runtime.
+One server process. The UI is an Angular app in the browser: a page sends an
+HTTP request to `/api`, a resource method runs, JPA queries go to
+PostgreSQL, and the JSON answer travels back for the page to render. There is
+no server-side session and no second server runtime.
 
-- **One view instance per navigation.** Route targets are Spring beans created
+- **One page instance per navigation.** Routed pages are Angular components created
   per navigation; their state (the loaded owner, the form contents) lives in the
-  user's session with the Vaadin `UI` until the user navigates away.
-- **Repositories are singletons and stateless.** They hold a `DSLContext` and
-  nothing else, so nothing about a user survives in them.
-- **A user interaction is single-threaded.** Vaadin holds the session lock for
-  the duration of the event, so two events of the same user never overlap.
+  browser, in the page's signals, until the user navigates away.
+- **Repositories are singletons and stateless.** They are `@ApplicationScoped` and hold
+  no fields, so nothing about a user survives in them.
+- **Requests are independent.** Quarkus runs each resource method on a worker
+  thread; two requests of the same user may overlap and share only the database.
 
 ## Reading a screen — UC-005 View Owner Details
 
 ```mermaid
 sequenceDiagram
     actor U as Clinic User
-    participant V as Owner details view
+    participant V as OwnerResource
     participant OR as Owner queries
     participant PR as Pet queries
     participant VR as Visit queries
     participant DB as PostgreSQL
 
-    U->>V: navigate /owners/{id}
+    U->>V: GET /api/owners/{id} (Owner details page)
     V->>OR: owner by id
     OR->>DB: SELECT owner
     alt no row
-        V-->>U: NotFoundException → NotFoundErrorView (404)
+        V-->>U: NotFoundException → ErrorMapper (404)
     else found
         V->>PR: pets of owner
         PR->>DB: SELECT pets JOIN types (ordered, GR-003)
@@ -60,8 +60,8 @@ this; see *Query cost* below.
 ```mermaid
 sequenceDiagram
     actor U as Clinic User
-    participant V as Find owners view
-    participant R as Owner queries
+    participant V as Find owners page
+    participant R as OwnerResource → queries
     participant DB as PostgreSQL
 
     U->>V: Find Owner ("Dav")
@@ -72,10 +72,10 @@ sequenceDiagram
     else count = 1
         V-->>U: navigate to Owner Details (A2)
     else more than one
-        V-->>U: render grid
+        V-->>U: render the list
         loop on every scroll step
             V->>R: page of owners (offset, limit)
-            R->>DB: SELECT owners + multiset(pet names) OFFSET/LIMIT
+            R->>DB: SELECT owners LEFT JOIN FETCH pets OFFSET/LIMIT
         end
     end
 ```
@@ -85,9 +85,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor U as Clinic User
-    participant V as Add pet view
+    participant V as Add pet page
     participant F as Pet form
-    participant R as Pet queries
+    participant R as PetResource → queries
     participant DB as PostgreSQL
 
     U->>V: Add Pet
@@ -95,14 +95,14 @@ sequenceDiagram
     alt invalid
         F-->>U: field errors, entries preserved
     else valid
-        V->>R: name already used by this owner?
+        V->>R: POST /api/owners/{id}/pets — name already used by this owner?
         R->>DB: SELECT EXISTS (lower(name))
         alt duplicate
-            V->>F: reject the name field
+            V->>F: reject the name field (409)
             F-->>U: error on the name field
         else free
-            V->>R: insert(pet)
-            R->>DB: INSERT (auto-commit)
+            R->>R: persist(pet)
+            R->>DB: INSERT (commit)
             V-->>U: notification + navigate to Owner Details
         end
     end
@@ -115,10 +115,10 @@ navigate.** The confirmation is not decoration; FR-022 requires it.
 ## Transaction boundaries
 
 **The repository is the transaction boundary.** Every repository is annotated
-`@Transactional(readOnly = true)` at class level; `insert` and `update` override
-it with a plain `@Transactional`. A view never opens a transaction — a view
-method spans a user interaction, and a transaction that waits for a user is held
-far too long. `ArchitectureTest.repositoriesAreTransactional` and `viewsAreNotTransactional`
+`@Transactional` (`jakarta.transaction`) at class level, for reads and writes
+alike (JTA has no read-only flag). A resource never opens a transaction — what
+it returns must already be loaded, or Jackson trips over a lazy association
+outside it. `ArchitectureTest.repositoriesAreTransactional` and `resourcesAreNotTransactional`
 keep it that way.
 
 What that means per use case today:
@@ -128,30 +128,30 @@ What that means per use case today:
   in one transaction of its own.
 - **The reads of one screen are separate transactions.** The owner details
   screen (UC-005) loads the owner, the pets, and each pet's visits in several
-  read-only transactions, not one. Consistent per read, not across the screen — acceptable
+  transactions, not one. Consistent per read, not across the screen — acceptable
   for a front desk reading one owner, and the alternative would mean holding a
-  transaction across the rendering of a view.
+  transaction across a resource method.
 - **A transaction never spans a user interaction.** The duplicate-name check and
   the insert that follows it are two transactions, deliberately; see below.
 
 **The rule for the next use case:** the moment a use case needs *two* statements
 to succeed or fail together, write **one** `@Transactional` method in the
 owning module's `domain` package that performs both, and add a line here saying
-which use case made it necessary. Two calls from a view are two transactions, no
-matter what the view does between them.
+which use case made it necessary. Two calls from a resource are two transactions, no
+matter what the resource does between them.
 
 ## Concurrency
 
 - **A rule that needs a lookup before the write is a check-then-act.** The one
   that has it today is
   [GR-006](../business_rules.md#gr-006-unique-pet-name-per-owner) (UC-007 /
-  UC-008 BR-001): the lookup and the `INSERT` are two transactions with a user's
-  click between them, so two clerks writing the same value for the same owner at
+  UC-008 BR-001): the lookup and the `INSERT` are two transactions with nothing
+  holding them together, so two clerks writing the same value for the same owner at
   the same moment can both pass the check. The database is the backstop —
   `pets_owner_name_unique` is a unique index on `(owner_id, lower(name))`, which
   compares the way the rule says it must, so the loser of the race gets a
-  `DataIntegrityViolationException`, translated by the `@Repository` stereotype
-  and rendered by `ApplicationErrorView`. The check in the view exists to turn
+  `ConstraintViolationException` from Hibernate, mapped to a 500 by `ErrorMapper`
+  and shown in the page's error panel. The check in the resource exists to turn
   the common case into a field-level error instead of an error page.
 
   **The shape generalizes:** a rule the database cannot express alone is checked
@@ -173,8 +173,8 @@ Everything is synchronous, inside the user's request:
 |--------------------------------|-------|
 | Batch jobs / schedulers        | no    |
 | Message queues / domain events | no    |
-| `@Async`, background threads   | no    |
-| Vaadin `@Push` / server push   | no    |
+| `Uni`, background threads      | no    |
+| SSE, WebSockets / server push  | no    |
 | Caching layer                  | no    |
 
 An agent must not introduce any of them to solve a problem the specification
@@ -185,9 +185,9 @@ ADR.
 
 - **Unbounded lists load lazily** ([GR-002](../business_rules.md#gr-002-lazy-loading-of-lists),
   NFR-001/002): `findPage(offset, limit)` plus
-  a paired `count()`, wired as a Vaadin callback data provider. Rows fetched per
+  a paired `count()`, behind `GET /api/…?offset=&limit=`. Rows fetched per
   scroll step do not grow with the table size.
-- **To-many data in a lazy grid is pre-joined with `multiset(...)`** so a grid
+- **To-many data in a lazy list is fetched with `left join fetch`** so a list
   never issues a query per row — the owner search results with their pet names
   (UC-004) and the vet directory with its specialties (UC-002).
 - **Indexes carrying this:** `owners_last_name_idx` (prefix search),
@@ -198,11 +198,12 @@ ADR.
 
 | At runtime                                  | Result                                                  |
 |---------------------------------------------|---------------------------------------------------------|
-| Entity missing in `beforeEnter`             | `NotFoundException` → `NotFoundErrorView`, HTTP 404      |
-| Anything else thrown                        | `ApplicationErrorView`, HTTP 500                         |
-| `SQLException` from jOOQ                    | translated to Spring's `DataAccessException` by the `@Repository` stereotype, then handled as above |
+| Entity missing in the resource              | `NotFoundException` → `ErrorMapper`, HTTP 404            |
+| Route the frontend does not have            | `NotFoundPage` (the `**` route)                          |
+| Anything else thrown                        | `ErrorMapper`, HTTP 500                                  |
+| `SQLException` from Hibernate               | already a `PersistenceException` (a `RuntimeException`), handled as above |
 
-Both error views render **inside `MainLayout`**, so the drawer and header stay
+Both error pages render **inside the shell** (`app.html`), so the drawer and header stay
 usable (NFR-005), and both show the message only — never a stack trace
-(NFR-004, UC-010 BR-003). `/oups` (`CrashView`) exists to demonstrate this path
+(NFR-004, UC-010 BR-003). `/oups` (`CrashPage` → `CrashResource`) exists to demonstrate this path
 on purpose (UC-010 BR-004).

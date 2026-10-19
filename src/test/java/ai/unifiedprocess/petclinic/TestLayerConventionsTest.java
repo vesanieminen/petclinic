@@ -4,9 +4,8 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTag;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
-import com.vaadin.browserless.SpringBrowserlessTest;
-import org.vaadin.addons.dramafinder.AbstractBasePlaywrightIT;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
@@ -20,26 +19,26 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * paragraph.
  *
  * <p>Only the two dangerous directions are asserted. Plenty of {@code *Test}
- * classes are neither view tests nor journeys — the sensors, this class — so
- * "every {@code *Test} extends something" would be false.
+ * classes are neither use-case tests nor journeys — the sensors, this class —
+ * so "every {@code *Test} extends something" would be false.
  */
 @ArchTag("sensor")
 @AnalyzeClasses(packages = "ai.unifiedprocess.petclinic")
 class TestLayerConventionsTest {
 
     @ArchTest
-    static final ArchRule browserlessTestsAreNotNamedIT =
+    static final ArchRule useCaseTestsAreNotNamedIT =
             noClasses()
-                    .that().areAssignableTo(SpringBrowserlessTest.class)
+                    .that().haveSimpleNameStartingWith("UC")
                     .should().haveSimpleNameEndingWith("IT")
-                    .because("testing.md: Surefire runs *Test — a browserless test named *IT "
-                            + "is skipped by ./mvnw test and runs in the wrong phase");
+                    .because("testing.md: Surefire runs *Test — a use-case test named *IT "
+                            + "is skipped by mvn test and runs in the wrong phase");
 
     @ArchTest
-    static final ArchRule playwrightTestsAreNotNamedTest =
-            noClasses()
-                    .that().areAssignableTo(AbstractBasePlaywrightIT.class)
-                    .should().haveSimpleNameEndingWith("Test")
-                    .because("testing.md: Failsafe runs *IT — a Playwright test named *Test "
-                            + "starts a browser inside the unit-test phase");
+    static final ArchRule journeysAreNamedIT =
+            classes()
+                    .that().areAnnotatedWith(TestCase.class)
+                    .should().haveSimpleNameEndingWith("IT")
+                    .because("testing.md: Failsafe runs *IT — a journey named *Test "
+                            + "runs a whole end-to-end path inside the use-case test phase");
 }

@@ -1,11 +1,9 @@
 package ai.unifiedprocess.petclinic;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
-@Import(TestcontainersConfiguration.class)
-@SpringBootTest
+@QuarkusTest
 class PetclinicApplicationTests {
 
     @Test

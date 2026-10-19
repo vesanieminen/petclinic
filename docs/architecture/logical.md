@@ -10,11 +10,11 @@ a table when one already fits.
 ## Feature modules
 
 Five business modules plus one technical shell. A module owns its entities, its
-queries, and the views of the use cases it serves.
+queries, its REST resource, and the pages of the use cases it serves.
 
 ```mermaid
 flowchart LR
-    core["core — shell<br/>MainLayout · error views"]
+    core["core — shell<br/>app shell · error pages"]
     welcome["welcome<br/>UC-001"]
     vet["vet<br/>UC-002<br/>Vet · Specialty"]
     owner["owner<br/>UC-003…006<br/>Owner"]
@@ -34,11 +34,11 @@ flowchart LR
 | `owner`   | `OWNER`                             | UC-003 … UC-006 |
 | `pet`     | `PET`, `PET_TYPE`                   | UC-007, UC-008  |
 | `visit`   | `VISIT`                             | UC-009          |
-| `core`    | — (app shell and error views)       | UC-010          |
+| `core`    | — (app shell and error pages)       | UC-010          |
 
 What a module contains follows from the use cases assigned to it and the naming
-rules of the Development View: one view per use case, one `<Entity>` record and
-one `<Entity>Repository` per entity, a shared `<Entity>Form` where several use
+rules of the Development View: one page per use case, one `<Entity>` entity and
+one `<Entity>Repository` per entity, a shared `<entity>-form.ts` where several use
 cases edit the same entity.
 
 The clinic is small enough that these are modules, not bounded contexts: there
@@ -48,13 +48,13 @@ everywhere.
 ## Boundaries
 
 - A module reaches into another module through its **`domain`** package only —
-  never through its `ui`.
-- The one exception is routing: the shell and the aggregating views (e.g.
+  never through its `api`.
+- The one exception is routing: the shell and the aggregating pages (e.g.
   the owner details screen of UC-005 linking to the add-pet screen of UC-007)
-  may name another module's view class as a **route token** and build its
-  parameters through that module's `*RouteParameters` holder. No instantiation
-  of views, no other calls, no state.
-- Because of that exception the module graph above is cyclic by design (`owner` → `visit` → `pet` → `owner`). The
+  may name another module's page by its **route path** and fill in its
+  parameters in a `routerLink`. No instantiation
+  of pages, no other calls, no state.
+- Because an `api` may read another module's `domain` the module graph above is cyclic by design (`owner` → `visit` → `pet` → `owner`). The
   `domain` packages are not, and must
   stay that way — `ArchitectureTest.noCyclesBetweenFeatures` slices on
   `(*).domain..` for exactly that reason.
@@ -74,14 +74,14 @@ architectural decision and holds whatever the rules turn out to be:
 
 | Kind of rule                          | Honoured in                                                     |
 |---------------------------------------|-----------------------------------------------------------------|
-| Field-level input rule                | the feature's `<Entity>Form` — the validation boundary ([ADR-005](adr/ADR-005-validation-in-the-form.md)) |
-| A rule that needs a database lookup   | the view, between validation and the write; see [`process.md`](process.md#concurrency) |
+| Field-level input rule                | the feature's `<entity>-form.ts` — the validation boundary ([ADR-005](adr/ADR-005-validation-in-the-form.md)) |
+| A rule that needs a database lookup   | the resource, between validation and the write; see [`process.md`](process.md#concurrency) |
 | A rule the data itself must never break | a constraint in the Flyway migration, so it holds no matter which code writes |
-| Ordering of a list                    | an `ORDER BY` in the query that feeds it — never a sort in the view |
-| Reachability of a route               | the view's `beforeEnter`, which throws `NotFoundException` when the entity does not fit the route |
+| Ordering of a list                    | an `ORDER BY` in the query that feeds it — never a sort in the page |
+| Reachability of a route               | the resource, which throws `NotFoundException` when the entity does not fit the route |
 
-**Validation is not in the domain records.** Domain types are plain records with
-no annotations and no constructor checks — the form is the validation boundary.
+**Validation is not in the domain entities.** Entities carry JPA mappings and
+no validation annotations, no constructor checks — the form is the validation boundary.
 
 ## Reference data
 

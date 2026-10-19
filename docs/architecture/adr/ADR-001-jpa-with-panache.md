@@ -1,4 +1,4 @@
-# ADR-001: jOOQ with generated SQL instead of JPA/Hibernate
+# ADR-001: JPA with Panache instead of jOOQ
 
 **Status:** Accepted   
 **Date:** 2026-09-17   
@@ -16,30 +16,32 @@ With an ORM, what actually reaches the database is the product of mappings,
 fetch types, and a session lifecycle. Reviewing generated code then means
 reviewing what the framework will do with it — which is precisely the kind of
 implicit behaviour an agent gets wrong and a reviewer misses.
+jOOQ would avoid it, at the price of a code generator in the build and an idiom
+no Quarkus guide uses.
 
 ## Decision
 
-Use **jOOQ** with code generated from the real schema. No JPA, no Spring Data,
-no entities with an identity lifecycle.
+Use **JPA through Hibernate ORM with Panache**, constrained so the query a page
+runs is written in one known place. No Spring Data, no active record.
 
-- Domain types are plain Java records, mapped with
-  `org.jooq.Records.mapping(Type::new)` — the constructor reference makes column
-  order a compile error when it drifts.
-- To-many data loads with `multiset(...)` in the same query.
+- Domain types are hand-written `@Entity` classes mapping the tables Flyway
+  creates; resources return records shaped for the page, never entities.
+- To-many data loads with `left join fetch` in the same query.
 - Persistence classes are still called `<Entity>Repository` and annotated
-  `@Repository`, for exception translation and for a name developers recognize.
+  `@ApplicationScoped`, implementing `PanacheRepositoryBase<E, ID>`.
 
-`ArchitectureTest.noJpaNoSpringData` and `noFetchInto` enforce this.
+`ArchitectureTest.noSpring`, `entitiesAreNotActiveRecords`,
+`repositoriesAreNamedAndScoped` and `resourcesNeverReturnEntities` enforce this.
 
 ## Consequences
 
-- **The query in the code is the query at the database.** Review and
+- **The query in the code is the JPQL, not the SQL.** Review and
   specification compare directly; the N+1 discussions in
-  [`../process.md`](../process.md) are visible facts, not guesses.
-- **Code generation is now part of the build.** jOOQ classes must be regenerated
-  after every migration change, which is why `generate-sources` needs Docker
+  [`../process.md`](../process.md) are checked in the SQL log, not guessed.
+- **No code generation, and no compile-time check.** A wrong column name fails
+  the first test that reads it, so a migration and its entity change together
   ([ADR-003](ADR-003-flyway-owns-the-schema.md)).
-- **No dirty checking, no cascade, no lazy loading.** Every write is an explicit
+- **No dirty checking, cascade or lazy loading outside a repository.** Every write is an explicit
   statement. For the five single-statement writes this application has, that is
   a simplification, not a cost.
 - **The SQL is PostgreSQL-specific.** Accepted: C-005 names one database.

@@ -47,7 +47,7 @@ $flagged
 That line is an assertion the traceability sensors act on, not a label. Either
 put the previous value back, or run
 
-  aiup-vaadin-jooq:coverage-check <id>
+  aiup-angular-jpa:coverage-check <id>
 
 and set the status again once it reports no gaps. Then run the sensors
 (./mvnw -q test -Dgroups=sensor) so the one it switched on actually votes.

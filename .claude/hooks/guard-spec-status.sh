@@ -55,7 +55,7 @@ That line is an assertion the traceability sensors act on, not a label, and no
 coverage audit of $id has finished in this session since the code and tests
 last changed. Run
 
-  aiup-vaadin-jooq:coverage-check $id
+  aiup-angular-jpa:coverage-check $id
 
 first. When it reports no gaps, make this edit again and then run the sensors
 (./mvnw -q test -Dgroups=sensor) so the one it switches on actually votes. When

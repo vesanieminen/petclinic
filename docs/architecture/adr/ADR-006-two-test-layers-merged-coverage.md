@@ -1,4 +1,4 @@
-# ADR-006: Two test layers — browserless `*Test` and Playwright `*IT`
+# ADR-006: Two test layers — use-case `*Test` and journey `*IT`
 
 **Status:** Accepted   
 **Date:** 2026-09-17   
@@ -14,7 +14,7 @@ real browser walks it.
 Verifying everything in a browser is slow and flaky. Verifying everything
 server-side never proves the application actually renders and responds in a
 browser. Running both, but measuring coverage on only one, would push an agent
-into writing duplicate server-side tests for code an end-to-end test already
+into writing duplicate use-case tests for code an end-to-end test already
 covers.
 
 ## Decision
@@ -24,22 +24,22 @@ phase:
 
 | Layer | Name | Runner | Scope |
 |-------|------|--------|-------|
-| Vaadin Browserless Testing | `UC<NNN><Name>Test` | Surefire, `test` | one use case, server-side, no browser — **the default** |
-| Playwright + Drama Finder  | `TC<NNN><Name>IT` (or `UC<NNN><Name>IT`) | Failsafe, `verify` | a test case journey in a real browser |
+| `@QuarkusTest` + `BrowserTest` / REST Assured | `UC<NNN><Name>Test` | Surefire, `test` | one use case, its page in Playwright, its resource over `/api` — **the default** |
+| `@QuarkusTest` + `BrowserTest` | `TC<NNN><Name>IT` | Failsafe, `verify` | a test case journey in a real browser |
 
-Both run against a real PostgreSQL from Testcontainers (NFR-007). JaCoCo runs in
-both JVMs, and `post-integration-test` **merges the two exec files** into the one
-report Sonar reads.
+Both run against a real PostgreSQL, the local server (NFR-007), and the built
+frontend. `quarkus-jacoco` instruments the application in both phases and writes
+**one report**, `target/jacoco-report`.
 
 ## Consequences
 
 - **A line covered only by a Playwright `*IT` counts as covered,** so nobody
-  writes a browserless test just to satisfy the gate. That is the whole point of
-  the merge.
-- **Only `./mvnw verify` produces the merged report.** `./mvnw test` runs the
-  agent and stops before the merge — checking coverage after `test` shows a
+  writes a use-case test just to satisfy the gate. That is the whole point of
+  the one report.
+- **Only `./mvnw verify` produces the full report.** `./mvnw test` stops
+  before the journeys — checking coverage after `test` shows a
   number that is wrong by construction.
-- **Naming is load-bearing.** A browserless test called `*IT` never runs in
-  `test`; a Playwright test called `*Test` runs in the wrong phase and fails.
-- **The browser layer stays small** — one class per specified test case, and no
+- **Naming is load-bearing.** A use-case test called `*IT` never runs in
+  `test`; a journey called `*Test` runs in the wrong phase and fails.
+- **The journey layer stays small** — one class per specified test case, and no
   more — because it is the expensive one.

@@ -1,11 +1,11 @@
 .idea
 target
-src/main/frontend/generated
-src/main/frontend/index.html
 .classpath
 .project
 .settings
-/src/main/bundles/prod.bundle
+frontend/node_modules
+frontend/dist
+frontend/.angular
 # Claude Code: settings.json and hooks/ are shared, local overrides are not
 .claude/settings.local.json
 

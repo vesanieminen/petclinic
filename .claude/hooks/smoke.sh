@@ -171,18 +171,18 @@ echo "-- coverage audit (SubagentStop of uc-coverage)"
 transcript="$tmp/agent.jsonl"
 printf '{"type":"user","message":{"role":"user","content":"UC-004 both"}}\n{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"## UC-004 Find Owners — implementation and tests"}]}}\n' > "$transcript"
 audit() { printf '{"agent_type":"%s","stop_reason":"%s","agent_transcript_path":"%s","last_assistant_message":"%s"}' "$1" "$2" "$3" "$4"; }
-run record-coverage-check.sh "$(audit aiup-vaadin-jooq:uc-coverage end_turn "$transcript" "")" >/dev/null
+run record-coverage-check.sh "$(audit aiup-angular-jpa:uc-coverage end_turn "$transcript" "")" >/dev/null
 check "the audited id is recorded from the assignment" present "$(present "$checked/UC-004")"
 rm -rf "$checked"
-run record-coverage-check.sh "$(audit aiup-vaadin-jooq:uc-coverage end_turn /nowhere '## TC-001 Journey — implementation and tests')" >/dev/null
+run record-coverage-check.sh "$(audit aiup-angular-jpa:uc-coverage end_turn /nowhere '## TC-001 Journey — implementation and tests')" >/dev/null
 check "falls back to the report heading" present "$(present "$checked/TC-001")"
 rm -rf "$checked"
-run record-coverage-check.sh "$(audit aiup-vaadin-jooq:uc-coverage max_tokens "$transcript" "")" >/dev/null
+run record-coverage-check.sh "$(audit aiup-angular-jpa:uc-coverage max_tokens "$transcript" "")" >/dev/null
 check "an agent cut off records nothing" absent "$(present "$checked")"
 run record-coverage-check.sh "$(audit Explore end_turn "$transcript" "")" >/dev/null
 check "another agent records nothing" absent "$(present "$checked")"
 printf '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Audit uc 7 and TC001, mode both"}]}}\n' > "$transcript"
-run record-coverage-check.sh "$(audit plugin:aiup-vaadin-jooq:uc-coverage end_turn "$transcript" "")" >/dev/null
+run record-coverage-check.sh "$(audit plugin:aiup-angular-jpa:uc-coverage end_turn "$transcript" "")" >/dev/null
 check "ids are normalized (uc 7)" present "$(present "$checked/UC-007")"
 check "ids are normalized (TC001)" present "$(present "$checked/TC-001")"
 rm -rf "$checked"

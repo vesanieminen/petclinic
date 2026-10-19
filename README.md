@@ -27,7 +27,7 @@ The repository has two branches, marking the beginning and the end of the demo.
 | Branch  | Description                                                                                                                                                              |
 |---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `start` | The state right after reverse-engineering the original Spring PetClinic. All ten use cases are specified in [`docs/`](docs/), but only UC-001 (welcome page) is built. **This is where the live demo begins.** |
-| `main`  | The end state: every use case implemented against those specifications, covered by server-side view tests and a Playwright end-to-end journey.                            |
+| `main`  | The end state: every use case implemented against those specifications, covered by use-case tests and a Playwright end-to-end journey.                                    |
 
 `main` is a single commit on top of `start`, so the whole demo is one diff:
 
@@ -50,11 +50,11 @@ git switch -c my-experiment start
 ## Stack
 
 - **Java 25**
-- **Spring Boot 4.1**
-- **Vaadin 25.2** — UI
-- **jOOQ** — type-safe SQL
+- **Quarkus 3.40** — REST API (Quarkus REST + Jackson)
+- **Angular 22** — UI, in `frontend/`
+- **Hibernate ORM with Panache** — JPA
 - **Flyway** — database migrations
-- **PostgreSQL** (via Testcontainers for tests and for jOOQ code generation)
+- **PostgreSQL** (a local server for the application and the tests)
 
 ## Specs
 
@@ -75,7 +75,7 @@ The link between specs and code is enforced by tests, the *sensors*: `UseCaseTra
 `@UseCase` annotation points at a use case, flow, and business rule that really exists, `TestCaseTraceabilityTest` does
 the same for the test cases, `BusinessRuleTraceabilityTest` keeps the shared business rules and the use cases that
 reference them in agreement, and `RequirementTraceabilityTest` does the same for the requirements. Together with the
-ArchUnit rules in `ArchitectureTest` and `TestLayerConventionsTest` they run in seconds, without Docker:
+ArchUnit rules in `ArchitectureTest` and `TestLayerConventionsTest` they run in seconds, without a database:
 `./mvnw -q test -Dgroups=sensor`. What each sensor checks is in
 [`docs/architecture/testing.md`](docs/architecture/testing.md#the-traceability-sensors), and how they fit into the
 harness is in [`docs/architecture/README.md`](docs/architecture/README.md#the-harness) and
@@ -87,18 +87,20 @@ The guardrails an AI coding agent works under are part of the repository too: th
 
 ## Running locally
 
-Docker must be running — Testcontainers provides PostgreSQL for the application, the tests, and jOOQ code generation.
+PostgreSQL must be running on localhost:5432 (`vb-postgres start`) — for the application and the tests.
 
 ```bash
-./mvnw spring-boot:test-run
+./mvnw quarkus:dev
+cd frontend && npm start
 ```
 
-The application is then available at <http://localhost:8080>.
+The application is then available at <http://localhost:4200>.
 
 ## Tests
 
 ```bash
-./mvnw test     # server-side Vaadin view tests and the traceability sensors (*Test)
+(cd frontend && npm run build && npm test)   # build the frontend the browser tests need, run Vitest
+./mvnw test     # use-case tests and the traceability sensors (*Test)
 ./mvnw verify   # additionally runs the Playwright browser tests (*IT)
 ```
 
@@ -107,6 +109,7 @@ The application is then available at <http://localhost:8080>.
 ```
 docs/       — specifications (the source of truth)
 src/main/   — implementation derived from the specs
+frontend/   — the Angular frontend derived from the specs
 src/test/   — tests verifying the implementation against the specs
 ```
 

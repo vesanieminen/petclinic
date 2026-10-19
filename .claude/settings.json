@@ -61,7 +61,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "aiup-vaadin-jooq:uc-coverage$",
+        "matcher": "aiup-angular-jpa:uc-coverage$",
         "hooks": [
           {
             "type": "command",
